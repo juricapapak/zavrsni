@@ -1,6 +1,7 @@
 #!/usr/bin/env	python
 
 import rospy
+from math import sqrt
 from std_msgs.msg import Int32
 from std_msgs.msg import Int8
 from geometry_msgs.msg import PoseStamped
@@ -16,49 +17,42 @@ twi.angular.x = 0
 twi.angular.y = 0
 twi.angular.z = 0
 
-linearFuzzy = (-0.15, -0.1, 0, 0.1, 0.15) #upper distance = 0.5, lower = 0.45
-
-angularFuzzy = (-0.5, -0.3, -0.1, 0, 0.1, 0.3, 0.5) #upper distance = 0.02, lower = -0.02
-
+        #negative X, positive rotation
 
 def callbackPose(msg):
-    global twi, linearFuzzy, angularFuzzy
+    global twi
 
     if (state == 3 or state == 4):    #if we have a lock on
         z = msg.pose.position.z
         x = msg.pose.position.x
 
-        if (z > 0.5 and z < 1):     #distance to target in meters
-            delta = z - 0.5
-            delta *= 4
-            ind = (2 - delta)
-            twi.linear.x = linearFuzzy[int(round(ind))]
+        if (z > 0.5):     #distance to target in meters
+            speed = 0.5*sqrt(z - 0.5)
+            twi.linear.x = speed
         elif (z < 0.45):
-            delta = 0.45-z
-            delta *= 4.44
-            ind = (2 + delta)
-            twi.linear.x = linearFuzzy[int(round(ind))]
-        elif (z >= 1):
-            twi.linear.x = -0.15
+            speed = -0.5*sqrt(0.45-z)
+            twi.linear.x = speed
+
         else:
             twi.linear.x = 0
 
-        if (x > 0.02):              #angular distance to center line
-            delta = abs(0.24 - x)
-            delta *= 13.6364
-            twi.angular.z = angularFuzzy[int(round(delta))]      #turn clockwise
-        elif (x < -0.02):
-            delta = abs(0.02 + x)
-            delta *= 13.6364
-            delta += 3
-            twi.angular.z = angularFuzzy[int(round(delta))]       #turn counter-clockwise
+        if (x > 0.07):              #angular distance to center line
+            rot = -4*(x-0.07)
+            twi.angular.z = rot      #turn clockwise
+        elif (x < -0.07):
+            rot = 4*(-x-0.07)
+            twi.angular.z = rot      #turn counter-clockwise
+        elif (x > 0.02):
+            rot = -2*(x-0.02)
+            twi.angular.z = rot
+        elif( x < -0.02):
+            rot = 2*(x-0.02)
+            twi.angular.z = rot
         else:
             twi.angular.z = 0
 
         pubTwist.publish(twi)
-        #print "X: ", msg.pose.position.x
-        #print "Y: ", msg.pose.position.y
-        #print "Z: ", msg.pose.position.z
+
     else:               #stop the machine if no target is acquired
         twi.linear.x = 0
         twi.angular.z = 0
